@@ -28,7 +28,7 @@ const db = {
     const isUpdate = sqlUpper.startsWith('UPDATE');
     const isDelete = sqlUpper.startsWith('DELETE');
     
-    // 🔥 CONVERTER PLACEHOLDERS ? PARA $1, $2, etc.
+    // Converter placeholders ? para $1, $2, etc.
     let paramIndex = 1;
     let convertedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
     
@@ -36,14 +36,9 @@ const db = {
     if (isInsert && !sqlUpper.includes('RETURNING')) {
       convertedSql += ' RETURNING id';
     }
-
-    // 🔍 Debug
-    console.log('🔎 SQL convertido:', convertedSql);
-    console.log('📦 Params:', params);
     
     pool.query(convertedSql, params)
       .then(result => {
-        console.log('✅ Query OK - Rows:', result.rows.length || result.rowCount);
         if (isInsert) {
           callback(null, {
             insertId: result.rows[0]?.id,
@@ -58,8 +53,6 @@ const db = {
         }
       })
       .catch(err => {
-        console.error('❌ Erro PostgreSQL:', err.message);
-        console.error('📝 SQL:', convertedSql);
         callback(err);
       });
   }
