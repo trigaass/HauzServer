@@ -1,0 +1,365 @@
+import db from "../configs/db.js";
+
+export const createBoard = (req, res) => {
+  const { name, description, company_id, created_by } = req.body;
+
+  if (!name || !company_id || !created_by) {
+    return res.status(400).json({ error: "Campos obrigatórios: name, company_id, created_by" });
+  }
+
+  db.query(
+    "SELECT id, role, company_id FROM users WHERE id = ?",
+    [created_by],
+    (err, userResults) => {
+      if (err) {
+        console.error("Erro ao verificar usuário:", err);
+        return res.status(500).json({ error: "Erro ao criar board" });
+      }
+
+      if (userResults.length === 0) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+
+      const user = userResults[0];
+
+      // Apenas admin pode criar boards
+      if (user.role !== 'admin') {
+        return res.status(403).json({ error: "Apenas administradores podem criar boards" });
+      }
+
+      // Admin só pode criar boards na própria empresa
+      if (user.company_id !== company_id) {
+        return res.status(403).json({ error: "Sem permissão para criar board nesta empresa" });
+      }
+
+      db.query(
+        "INSERT INTO boards (name, description, company_id, created_by) VALUES (?, ?, ?, ?)",
+        [name, description || null, company_id, created_by],
+        (err, result) => {
+          if (err) {
+            console.error("Erro ao criar board:", err);
+            return res.status(500).json({ error: "Erro ao criar board" });
+          }
+
+          const boardId = result.insertId;
+
+          // Adicionar o criador ao board automaticamente
+          db.query(
+            "INSERT INTO board_users (board_id, user_id) VALUES (?, ?)",
+            [boardId, created_by],
+            (err) => {
+              if (err) {
+                console.error("Erro ao adicionar criador ao board:", err);
+              }
+              
+              res.status(201).json({ 
+                message: "Board criado com sucesso", 
+                boardId: boardId 
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+};
+
+export const getBoards = (req, res) => {
+  const { userId, role } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: "userId é obrigatório" });
+  }
+
+  // ADMIN: Vê todos os boards da empresa dele
+  if (role === "admin") {
+    db.query(
+      `SELECT b.*, u.email as creator_email, c.name as company_name
+       FROM boards b
+       JOIN users u ON b.created_by = u.id
+       JOIN companies c ON b.company_id = c.id
+       WHERE b.company_id = (SELECT company_id FROM users WHERE id = ?)
+       ORDER BY b.created_at DESC`,
+      [userId],
+      (err, results) => {
+        if (err) {
+          console.error("Erro ao buscar boards:", err);
+          return res.status(500).json({ error: "Erro ao buscar boards" });
+        }
+        console.log(`Admin ${userId} - ${results.length} boards encontrados`);
+        res.json(results);
+      }
+    );
+  } 
+  // USER: Vê apenas boards aos quais foi atribuído
+  else {
+    db.query(
+      `SELECT b.*, u.email as creator_email, c.name as company_name
+       FROM boards b
+       JOIN board_users bu ON b.id = bu.board_id
+       JOIN users u ON b.created_by = u.id
+       JOIN companies c ON b.company_id = c.id
+       WHERE bu.user_id = ?
+       ORDER BY b.created_at DESC`,
+      [userId],
+      (err, results) => {
+        if (err) {
+          console.error("Erro ao buscar boards:", err);
+          return res.status(500).json({ error: "Erro ao buscar boards" });
+        }
+        console.log(`User ${userId} - ${results.length} boards encontrados`);
+        res.json(results);
+      }
+    );
+  }
+};
+
+export const getBoardUsers = (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID do board é obrigatório" });
+  }
+
+  db.query(
+    `SELECT u.id, u.email, u.role
+     FROM users u
+     JOIN board_users bu ON u.id = bu.user_id
+     WHERE bu.board_id = ?
+     ORDER BY u.email ASC`,
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error("Erro ao buscar usuários do board:", err);
+        return res.status(500).json({ error: "Erro ao buscar usuários" });
+      }
+      res.json(results);
+    }
+  );
+};
+
+export const deleteBoard = (req, res) => {
+  const { id } = req.params;
+  const { userId, role } = req.query;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID do board é obrigatório" });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: "userId é obrigatório" });
+  }
+
+  // Verificar permissão antes de deletar
+  db.query(
+    "SELECT created_by, company_id FROM boards WHERE id = ?",
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error("Erro ao verificar board:", err);
+        return res.status(500).json({ error: "Erro ao excluir board" });
+      }
+
+      if (results.length === 0) {
+        return res.status(404).json({ error: "Board não encontrado" });
+      }
+
+      const board = results[0];
+
+      // Verificar se o admin é da mesma empresa
+      if (role === 'admin') {
+        db.query(
+          "SELECT company_id FROM users WHERE id = ?",
+          [userId],
+          (err, userResults) => {
+            if (err || userResults.length === 0) {
+              return res.status(403).json({ error: "Usuário não encontrado" });
+            }
+
+            const userCompanyId = userResults[0].company_id;
+
+            // Admin só pode deletar boards da própria empresa
+            if (userCompanyId !== board.company_id) {
+              return res.status(403).json({ error: "Sem permissão para deletar este board" });
+            }
+
+            // Deletar board
+            deleteBoardAndRelations(id, res);
+          }
+        );
+      } else {
+        // Usuários normais não podem deletar boards
+        return res.status(403).json({ error: "Apenas administradores podem deletar boards" });
+      }
+    }
+  );
+};
+
+// Função auxiliar para deletar board e suas relações
+function deleteBoardAndRelations(boardId, res) {
+  // Primeiro, deletar as associações na tabela board_users
+  db.query(
+    "DELETE FROM board_users WHERE board_id = ?",
+    [boardId],
+    (err) => {
+      if (err) {
+        console.error("Erro ao deletar associações do board:", err);
+        return res.status(500).json({ error: "Erro ao excluir board" });
+      }
+
+      // Depois, deletar o board
+      db.query(
+        "DELETE FROM boards WHERE id = ?",
+        [boardId],
+        (err, result) => {
+          if (err) {
+            console.error("Erro ao deletar board:", err);
+            return res.status(500).json({ error: "Erro ao excluir board" });
+          }
+
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Board não encontrado" });
+          }
+
+          res.json({ message: "Board excluído com sucesso" });
+        }
+      );
+    }
+  );
+}
+
+export const addUserToBoard = (req, res) => {
+  const { board_id, user_id, admin_id } = req.body;
+
+  if (!board_id || !user_id || !admin_id) {
+    return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
+  }
+
+  // Verificar se quem está adicionando é admin
+  db.query(
+    "SELECT role, company_id FROM users WHERE id = ?",
+    [admin_id],
+    (err, adminResults) => {
+      if (err || adminResults.length === 0) {
+        return res.status(403).json({ error: "Usuário não encontrado" });
+      }
+
+      const admin = adminResults[0];
+
+      if (admin.role !== 'admin') {
+        return res.status(403).json({ error: "Apenas administradores podem adicionar usuários aos boards" });
+      }
+
+      // Verificar se o board é da mesma empresa do admin
+      db.query(
+        "SELECT company_id FROM boards WHERE id = ?",
+        [board_id],
+        (err, boardResults) => {
+          if (err || boardResults.length === 0) {
+            return res.status(404).json({ error: "Board não encontrado" });
+          }
+
+          const board = boardResults[0];
+
+          if (board.company_id !== admin.company_id) {
+            return res.status(403).json({ error: "Board não pertence à sua empresa" });
+          }
+
+          // Verificar se o usuário é da mesma empresa
+          db.query(
+            "SELECT company_id FROM users WHERE id = ?",
+            [user_id],
+            (err, userResults) => {
+              if (err || userResults.length === 0) {
+                return res.status(404).json({ error: "Usuário não encontrado" });
+              }
+
+              const user = userResults[0];
+
+              if (user.company_id !== admin.company_id) {
+                return res.status(403).json({ error: "Usuário não pertence à sua empresa" });
+              }
+
+              // Adicionar usuário ao board
+              db.query(
+                "INSERT INTO board_users (board_id, user_id) VALUES (?, ?)",
+                [board_id, user_id],
+                (err, result) => {
+                  if (err) {
+                    if (err.code === '23505') {
+                      return res.status(400).json({ error: "Usuário já está neste board" });
+                    }
+                    console.error("Erro ao adicionar usuário ao board:", err);
+                    return res.status(500).json({ error: "Erro ao adicionar usuário" });
+                  }
+
+                  res.status(201).json({ message: "Usuário adicionado ao board com sucesso" });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+};
+
+export const removeUserFromBoard = (req, res) => {
+  const { board_id, user_id, admin_id } = req.body;
+
+  if (!board_id || !user_id || !admin_id) {
+    return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
+  }
+
+  // Verificar se quem está removendo é admin
+  db.query(
+    "SELECT role, company_id FROM users WHERE id = ?",
+    [admin_id],
+    (err, adminResults) => {
+      if (err || adminResults.length === 0) {
+        return res.status(403).json({ error: "Usuário não encontrado" });
+      }
+
+      const admin = adminResults[0];
+
+      if (admin.role !== 'admin') {
+        return res.status(403).json({ error: "Apenas administradores podem remover usuários dos boards" });
+      }
+
+      // Verificar se o board é da mesma empresa do admin
+      db.query(
+        "SELECT company_id FROM boards WHERE id = ?",
+        [board_id],
+        (err, boardResults) => {
+          if (err || boardResults.length === 0) {
+            return res.status(404).json({ error: "Board não encontrado" });
+          }
+
+          const board = boardResults[0];
+
+          if (board.company_id !== admin.company_id) {
+            return res.status(403).json({ error: "Board não pertence à sua empresa" });
+          }
+
+          // Remover usuário do board
+          db.query(
+            "DELETE FROM board_users WHERE board_id = ? AND user_id = ?",
+            [board_id, user_id],
+            (err, result) => {
+              if (err) {
+                console.error("Erro ao remover usuário do board:", err);
+                return res.status(500).json({ error: "Erro ao remover usuário" });
+              }
+
+              if (result.affectedRows === 0) {
+                return res.status(404).json({ error: "Relacionamento não encontrado" });
+              }
+
+              res.json({ message: "Usuário removido do board com sucesso" });
+            }
+          );
+        }
+      );
+    }
+  );
+};

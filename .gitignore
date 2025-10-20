@@ -1,0 +1,103 @@
+# ===========================================
+# ARQUIVOS DE AMBIENTE (SEGURANÇA)
+# ===========================================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# ===========================================
+# NODE MODULES
+# ===========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ===========================================
+# UPLOADS E ARQUIVOS TEMPORÁRIOS
+# ===========================================
+uploads/
+temp/
+tmp/
+*.log
+
+# ===========================================
+# BANCO DE DADOS
+# ===========================================
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+dump.sql
+backup/
+
+# ===========================================
+# IDE / EDITOR
+# ===========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===========================================
+# BUILDS E CACHE
+# ===========================================
+dist/
+build/
+.cache/
+.parcel-cache/
+.next/
+out/
+
+# ===========================================
+# TESTING
+# ===========================================
+coverage/
+.nyc_output/
+*.test.js.snap
+
+# ===========================================
+# SISTEMA OPERACIONAL
+# ===========================================
+Thumbs.db
+Desktop.ini
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===========================================
+# CERTIFICADOS E CHAVES
+# ===========================================
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# ===========================================
+# DOCUMENTAÇÃO SENSÍVEL
+# ===========================================
+credentials.md
+passwords.txt
+secrets/
+
+# ===========================================
+# PM2 (GERENCIADOR DE PROCESSOS)
+# ===========================================
+.pm2/
+pm2.log
+ecosystem.config.js
+
+# ===========================================
+# DOCKER (OPCIONAL)
+# ===========================================
+docker-compose.override.yml
+.dockerignore
