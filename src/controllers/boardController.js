@@ -12,7 +12,7 @@ export const createBoard = (req, res) => {
     [created_by],
     (err, userResults) => {
       if (err) {
-        console.error("Erro ao verificar usuário:", err);
+        console.error("❌ Erro ao verificar usuário:", err.message);
         return res.status(500).json({ error: "Erro ao criar board" });
       }
 
@@ -22,12 +22,10 @@ export const createBoard = (req, res) => {
 
       const user = userResults[0];
 
-      // Apenas admin pode criar boards
       if (user.role !== 'admin') {
         return res.status(403).json({ error: "Apenas administradores podem criar boards" });
       }
 
-      // Admin só pode criar boards na própria empresa
       if (user.company_id !== company_id) {
         return res.status(403).json({ error: "Sem permissão para criar board nesta empresa" });
       }
@@ -37,19 +35,18 @@ export const createBoard = (req, res) => {
         [name, description || null, company_id, created_by],
         (err, result) => {
           if (err) {
-            console.error("Erro ao criar board:", err);
+            console.error("❌ Erro ao criar board:", err.message);
             return res.status(500).json({ error: "Erro ao criar board" });
           }
 
           const boardId = result.insertId;
 
-          // Adicionar o criador ao board automaticamente
           db.query(
             "INSERT INTO board_users (board_id, user_id) VALUES (?, ?)",
             [boardId, created_by],
             (err) => {
               if (err) {
-                console.error("Erro ao adicionar criador ao board:", err);
+                console.error("❌ Erro ao adicionar criador ao board:", err.message);
               }
               
               res.status(201).json({ 
@@ -71,7 +68,6 @@ export const getBoards = (req, res) => {
     return res.status(400).json({ error: "userId é obrigatório" });
   }
 
-  // ADMIN: Vê todos os boards da empresa dele
   if (role === "admin") {
     db.query(
       `SELECT b.*, u.email as creator_email, c.name as company_name
@@ -83,16 +79,13 @@ export const getBoards = (req, res) => {
       [userId],
       (err, results) => {
         if (err) {
-          console.error("Erro ao buscar boards:", err);
+          console.error("❌ Erro ao buscar boards:", err.message);
           return res.status(500).json({ error: "Erro ao buscar boards" });
         }
-        console.log(`Admin ${userId} - ${results.length} boards encontrados`);
         res.json(results);
       }
     );
-  } 
-  // USER: Vê apenas boards aos quais foi atribuído
-  else {
+  } else {
     db.query(
       `SELECT b.*, u.email as creator_email, c.name as company_name
        FROM boards b
@@ -104,10 +97,9 @@ export const getBoards = (req, res) => {
       [userId],
       (err, results) => {
         if (err) {
-          console.error("Erro ao buscar boards:", err);
+          console.error("❌ Erro ao buscar boards:", err.message);
           return res.status(500).json({ error: "Erro ao buscar boards" });
         }
-        console.log(`User ${userId} - ${results.length} boards encontrados`);
         res.json(results);
       }
     );
@@ -130,7 +122,7 @@ export const getBoardUsers = (req, res) => {
     [id],
     (err, results) => {
       if (err) {
-        console.error("Erro ao buscar usuários do board:", err);
+        console.error("❌ Erro ao buscar usuários do board:", err.message);
         return res.status(500).json({ error: "Erro ao buscar usuários" });
       }
       res.json(results);
@@ -150,13 +142,12 @@ export const deleteBoard = (req, res) => {
     return res.status(400).json({ error: "userId é obrigatório" });
   }
 
-  // Verificar permissão antes de deletar
   db.query(
     "SELECT created_by, company_id FROM boards WHERE id = ?",
     [id],
     (err, results) => {
       if (err) {
-        console.error("Erro ao verificar board:", err);
+        console.error("❌ Erro ao verificar board:", err.message);
         return res.status(500).json({ error: "Erro ao excluir board" });
       }
 
@@ -166,7 +157,6 @@ export const deleteBoard = (req, res) => {
 
       const board = results[0];
 
-      // Verificar se o admin é da mesma empresa
       if (role === 'admin') {
         db.query(
           "SELECT company_id FROM users WHERE id = ?",
@@ -178,42 +168,36 @@ export const deleteBoard = (req, res) => {
 
             const userCompanyId = userResults[0].company_id;
 
-            // Admin só pode deletar boards da própria empresa
             if (userCompanyId !== board.company_id) {
               return res.status(403).json({ error: "Sem permissão para deletar este board" });
             }
 
-            // Deletar board
             deleteBoardAndRelations(id, res);
           }
         );
       } else {
-        // Usuários normais não podem deletar boards
         return res.status(403).json({ error: "Apenas administradores podem deletar boards" });
       }
     }
   );
 };
 
-// Função auxiliar para deletar board e suas relações
 function deleteBoardAndRelations(boardId, res) {
-  // Primeiro, deletar as associações na tabela board_users
   db.query(
     "DELETE FROM board_users WHERE board_id = ?",
     [boardId],
     (err) => {
       if (err) {
-        console.error("Erro ao deletar associações do board:", err);
+        console.error("❌ Erro ao deletar associações do board:", err.message);
         return res.status(500).json({ error: "Erro ao excluir board" });
       }
 
-      // Depois, deletar o board
       db.query(
         "DELETE FROM boards WHERE id = ?",
         [boardId],
         (err, result) => {
           if (err) {
-            console.error("Erro ao deletar board:", err);
+            console.error("❌ Erro ao deletar board:", err.message);
             return res.status(500).json({ error: "Erro ao excluir board" });
           }
 
@@ -235,7 +219,6 @@ export const addUserToBoard = (req, res) => {
     return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
   }
 
-  // Verificar se quem está adicionando é admin
   db.query(
     "SELECT role, company_id FROM users WHERE id = ?",
     [admin_id],
@@ -250,7 +233,6 @@ export const addUserToBoard = (req, res) => {
         return res.status(403).json({ error: "Apenas administradores podem adicionar usuários aos boards" });
       }
 
-      // Verificar se o board é da mesma empresa do admin
       db.query(
         "SELECT company_id FROM boards WHERE id = ?",
         [board_id],
@@ -265,7 +247,6 @@ export const addUserToBoard = (req, res) => {
             return res.status(403).json({ error: "Board não pertence à sua empresa" });
           }
 
-          // Verificar se o usuário é da mesma empresa
           db.query(
             "SELECT company_id FROM users WHERE id = ?",
             [user_id],
@@ -280,7 +261,6 @@ export const addUserToBoard = (req, res) => {
                 return res.status(403).json({ error: "Usuário não pertence à sua empresa" });
               }
 
-              // Adicionar usuário ao board
               db.query(
                 "INSERT INTO board_users (board_id, user_id) VALUES (?, ?)",
                 [board_id, user_id],
@@ -289,7 +269,7 @@ export const addUserToBoard = (req, res) => {
                     if (err.code === '23505') {
                       return res.status(400).json({ error: "Usuário já está neste board" });
                     }
-                    console.error("Erro ao adicionar usuário ao board:", err);
+                    console.error("❌ Erro ao adicionar usuário ao board:", err.message);
                     return res.status(500).json({ error: "Erro ao adicionar usuário" });
                   }
 
@@ -311,7 +291,6 @@ export const removeUserFromBoard = (req, res) => {
     return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
   }
 
-  // Verificar se quem está removendo é admin
   db.query(
     "SELECT role, company_id FROM users WHERE id = ?",
     [admin_id],
@@ -326,7 +305,6 @@ export const removeUserFromBoard = (req, res) => {
         return res.status(403).json({ error: "Apenas administradores podem remover usuários dos boards" });
       }
 
-      // Verificar se o board é da mesma empresa do admin
       db.query(
         "SELECT company_id FROM boards WHERE id = ?",
         [board_id],
@@ -341,13 +319,12 @@ export const removeUserFromBoard = (req, res) => {
             return res.status(403).json({ error: "Board não pertence à sua empresa" });
           }
 
-          // Remover usuário do board
           db.query(
             "DELETE FROM board_users WHERE board_id = ? AND user_id = ?",
             [board_id, user_id],
             (err, result) => {
               if (err) {
-                console.error("Erro ao remover usuário do board:", err);
+                console.error("❌ Erro ao remover usuário do board:", err.message);
                 return res.status(500).json({ error: "Erro ao remover usuário" });
               }
 

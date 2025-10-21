@@ -14,24 +14,21 @@ dotenv.config();
 
 const app = express();
 
-// Configuração para ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configuração de CORS baseada no ambiente
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:5173', 'http://localhost:3000'];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Permitir requisições sem origin (mobile apps, Postman, etc)
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`⚠️  Origem bloqueada pelo CORS: ${origin}`);
+      // Removido o console.warn - só retorna erro se necessário
       callback(new Error('Não permitido pelo CORS'));
     }
   },
@@ -40,23 +37,11 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-// IMPORTANTE: Middleware CORS deve vir ANTES de qualquer rota
 app.use(cors(corsOptions));
-
-// Middleware para parsear JSON
 app.use(express.json());
-
-// 🖼️ SERVIR ARQUIVOS ESTÁTICOS (IMAGENS)
-// Isso permite acessar as imagens via http://localhost:3000/uploads/tasks/nome-do-arquivo.jpg
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Log de todas as requisições (apenas em desenvolvimento)
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-  });
-}
+// Removido o middleware de log de requisições
 
 app.get("/", (req, res) => {
   res.json({ 
@@ -66,7 +51,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// Rotas da API
 app.use("/api/auth", authRoutes);
 app.use("/api", boardRoutes);
 app.use("/api", companyRoutes);
@@ -74,12 +58,11 @@ app.use("/api", userRoutes);
 app.use("/api", cardRoutes);
 app.use("/api", taskRoutes);
 
-// Rota 404
 app.use((req, res) => {
   res.status(404).json({ error: "Rota não encontrada" });
 });
 
-// Error handler global
+// Error handler global - mantém logs de erro
 app.use((err, req, res, next) => {
   console.error("❌ Erro:", err.message);
   
@@ -98,12 +81,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
-  console.log(`\n${"=".repeat(60)}`);
-  console.log(`🚀 Servidor HauzFlow rodando`);
-  console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`🖼️  Uploads: http://localhost:${PORT}/uploads/tasks/`);
-  console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📋 CORS: ${allowedOrigins.join(', ')}`);
-  console.log(`⏰ Iniciado em: ${new Date().toLocaleString('pt-BR')}`);
-  console.log(`${"=".repeat(60)}\n`);
+  // Mensagem simplificada de inicialização
+  console.log(`\n🚀 HauzFlow API rodando em http://localhost:${PORT}`);
+  console.log(`📁 Ambiente: ${process.env.NODE_ENV || 'development'}\n`);
 });
