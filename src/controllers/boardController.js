@@ -1,7 +1,101 @@
-// ✅ Apenas as funções que precisam ser corrigidas:
+import db from "../configs/db.js";
 
+// ✅ CRIAR BOARD
+export const createBoard = (req, res) => {
+  const { company_id, name } = req.body;
+
+  if (!company_id || !name) {
+    return res.status(400).json({ error: "company_id e name são obrigatórios" });
+  }
+
+  db.query(
+    "INSERT INTO boards (company_id, name) VALUES (?, ?)",
+    [company_id, name],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Erro ao criar board:", err.message);
+        return res.status(500).json({ error: "Erro ao criar board" });
+      }
+
+      res.status(201).json({
+        message: "Board criado com sucesso",
+        boardId: result.insertId
+      });
+    }
+  );
+};
+
+// ✅ BUSCAR BOARDS
+export const getBoards = (req, res) => {
+  const { company_id } = req.query;
+
+  if (!company_id) {
+    return res.status(400).json({ error: "company_id é obrigatório" });
+  }
+
+  db.query(
+    "SELECT * FROM boards WHERE company_id = ? ORDER BY created_at DESC",
+    [company_id],
+    (err, results) => {
+      if (err) {
+        console.error("❌ Erro ao buscar boards:", err.message);
+        return res.status(500).json({ error: "Erro ao buscar boards" });
+      }
+      res.json(results);
+    }
+  );
+};
+
+// ✅ BUSCAR USUÁRIOS DE UM BOARD
+export const getBoardUsers = (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID do board é obrigatório" });
+  }
+
+  db.query(
+    `SELECT u.id, u.email, u.role 
+     FROM users u
+     INNER JOIN board_users bu ON u.id = bu.user_id
+     WHERE bu.board_id = ?
+     ORDER BY u.email ASC`,
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error("❌ Erro ao buscar usuários do board:", err.message);
+        return res.status(500).json({ error: "Erro ao buscar usuários" });
+      }
+      res.json(results);
+    }
+  );
+};
+
+// ✅ DELETAR BOARD
+export const deleteBoard = (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID do board é obrigatório" });
+  }
+
+  db.query("DELETE FROM boards WHERE id = ?", [id], (err, result) => {
+    if (err) {
+      console.error("❌ Erro ao deletar board:", err.message);
+      return res.status(500).json({ error: "Erro ao deletar board" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Board não encontrado" });
+    }
+
+    res.json({ message: "Board excluído com sucesso" });
+  });
+};
+
+// ✅ ADICIONAR USUÁRIO AO BOARD
 export const addUserToBoard = (req, res) => {
-  const { id } = req.params; // board_id vem da URL
+  const { id } = req.params;
   const { user_id, admin_id } = req.body;
 
   if (!id || !user_id || !admin_id) {
@@ -57,7 +151,7 @@ export const addUserToBoard = (req, res) => {
                 [board_id, user_id],
                 (err, result) => {
                   if (err) {
-                    if (err.code === '23505') {
+                    if (err.code === '23505' || err.code === 'ER_DUP_ENTRY') {
                       return res.status(400).json({ error: "Usuário já está neste board" });
                     }
                     console.error("❌ Erro ao adicionar usuário ao board:", err.message);
@@ -75,8 +169,9 @@ export const addUserToBoard = (req, res) => {
   );
 };
 
+// ✅ REMOVER USUÁRIO DO BOARD
 export const removeUserFromBoard = (req, res) => {
-  const { id, userId } = req.params; // board_id e user_id vêm da URL
+  const { id, userId } = req.params;
   const { admin_id } = req.body;
 
   if (!id || !userId || !admin_id) {
