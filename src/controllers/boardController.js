@@ -71,6 +71,38 @@ export const getBoardUsers = (req, res) => {
   );
 };
 
+// 🆕 BUSCAR TODAS AS IMAGENS DE UM BOARD
+export const getBoardImages = (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID do board é obrigatório" });
+  }
+
+  const query = `
+    SELECT 
+      t.id,
+      t.card_id,
+      t.content,
+      t.image_url,
+      t.created_at,
+      c.title as card_title
+    FROM tasks t
+    INNER JOIN cards c ON t.card_id = c.id
+    WHERE c.board_id = ?
+      AND t.image_url IS NOT NULL
+    ORDER BY t.created_at DESC
+  `;
+
+  db.query(query, [id], (err, results) => {
+    if (err) {
+      console.error("❌ Erro ao buscar imagens do board:", err.message);
+      return res.status(500).json({ error: "Erro ao buscar imagens" });
+    }
+    res.json(results);
+  });
+};
+
 // ✅ DELETAR BOARD
 export const deleteBoard = (req, res) => {
   const { id } = req.params;

@@ -3,6 +3,7 @@ import {
   createBoard, 
   getBoards, 
   getBoardUsers,
+  getBoardImages, // 🆕 Nova função
   deleteBoard,
   addUserToBoard, 
   removeUserFromBoard 
@@ -13,6 +14,7 @@ const router = express.Router();
 router.post("/boards", createBoard);
 router.get("/boards", getBoards);
 router.get("/boards/:id/users", getBoardUsers);
+router.get("/boards/:id/images", getBoardImages); // 🆕 Nova rota
 router.delete("/boards/:id", deleteBoard);
 router.post("/boards/:id/users", addUserToBoard);
 router.delete("/boards/:id/users/:userId", removeUserFromBoard);
