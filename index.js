@@ -12,7 +12,7 @@ import boardRoutes from "./src/routes/boardRoutes.js";
 import cardRoutes from "./src/routes/cardRoutes.js";
 import taskRoutes from "./src/routes/taskRoutes.js";
 import chatRoutes from "./src/routes/chatRoutes.js";
-import chatRoutes from "./src/routes/sessionRoutes.js";
+import sessionRoutes from "./src/routes/sessionRoutes.js";
 
 dotenv.config();
 
