@@ -12,6 +12,7 @@ import boardRoutes from "./src/routes/boardRoutes.js";
 import cardRoutes from "./src/routes/cardRoutes.js";
 import taskRoutes from "./src/routes/taskRoutes.js";
 import chatRoutes from "./src/routes/chatRoutes.js";
+import chatRoutes from "./src/routes/sessionRoutes.js";
 
 dotenv.config();
 
@@ -170,6 +171,7 @@ app.use("/api", userRoutes);
 app.use("/api", cardRoutes);
 app.use("/api", taskRoutes);
 app.use("/api", chatRoutes);
+app.use("/api", sessionRoutes);
 
 // 404 handler
 app.use((req, res) => {
