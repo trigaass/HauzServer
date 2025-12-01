@@ -1,32 +1,38 @@
 import db from "../configs/db.js";
 
-// ✅ CRIAR BOARD - VERSÃO CORRIGIDA
 export const createBoard = (req, res) => {
   console.log("📥 Requisição recebida:", req.body);
-  
-  const { company_id, name } = req.body;
 
-  if (!company_id || !name) {
+  const { company_id, name, created_by } = req.body; // ✅ ADICIONAR created_by
+
+  if (!company_id || !name || !created_by) {
+    // ✅ VALIDAR created_by
     console.log("❌ Validação falhou: faltam campos");
-    return res.status(400).json({ error: "company_id e name são obrigatórios" });
+    return res.status(400).json({
+      error: "company_id, name e created_by são obrigatórios",
+    });
   }
 
   console.log("🔄 Executando query INSERT...");
-  
+
+  // ✅ INCLUIR created_by NA QUERY
   db.query(
-    "INSERT INTO boards (company_id, name) VALUES (?, ?)",
-    [company_id, name],
+    "INSERT INTO boards (company_id, name, created_by) VALUES (?, ?, ?)",
+    [company_id, name, created_by],
     (err, result) => {
       if (err) {
         console.error("❌ Erro na query:", err);
-        return res.status(500).json({ error: "Erro ao criar board", details: err.message });
+        return res.status(500).json({
+          error: "Erro ao criar board",
+          details: err.message,
+        });
       }
 
       console.log("✅ Board criado com sucesso:", result);
-      
+
       res.status(201).json({
         message: "Board criado com sucesso",
-        boardId: result.insertId
+        boardId: result.insertId,
       });
     }
   );
@@ -138,7 +144,9 @@ export const addUserToBoard = (req, res) => {
   const { user_id, admin_id } = req.body;
 
   if (!id || !user_id || !admin_id) {
-    return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
+    return res
+      .status(400)
+      .json({ error: "board_id, user_id e admin_id são obrigatórios" });
   }
 
   const board_id = parseInt(id);
@@ -159,8 +167,12 @@ export const addUserToBoard = (req, res) => {
 
       const admin = adminResults[0];
 
-      if (admin.role !== 'admin') {
-        return res.status(403).json({ error: "Apenas administradores podem adicionar usuários aos boards" });
+      if (admin.role !== "admin") {
+        return res
+          .status(403)
+          .json({
+            error: "Apenas administradores podem adicionar usuários aos boards",
+          });
       }
 
       // 2. Verificar se o board existe e pertence à empresa do admin
@@ -180,7 +192,9 @@ export const addUserToBoard = (req, res) => {
           const board = boardResults[0];
 
           if (board.company_id !== admin.company_id) {
-            return res.status(403).json({ error: "Board não pertence à sua empresa" });
+            return res
+              .status(403)
+              .json({ error: "Board não pertence à sua empresa" });
           }
 
           // 3. Verificar se o usuário existe e pertence à mesma empresa
@@ -190,17 +204,23 @@ export const addUserToBoard = (req, res) => {
             (err, userResults) => {
               if (err) {
                 console.error("❌ Erro ao verificar usuário:", err.message);
-                return res.status(500).json({ error: "Erro ao verificar usuário" });
+                return res
+                  .status(500)
+                  .json({ error: "Erro ao verificar usuário" });
               }
 
               if (userResults.length === 0) {
-                return res.status(404).json({ error: "Usuário não encontrado" });
+                return res
+                  .status(404)
+                  .json({ error: "Usuário não encontrado" });
               }
 
               const user = userResults[0];
 
               if (user.company_id !== admin.company_id) {
-                return res.status(403).json({ error: "Usuário não pertence à sua empresa" });
+                return res
+                  .status(403)
+                  .json({ error: "Usuário não pertence à sua empresa" });
               }
 
               // 4. Adicionar usuário ao board
@@ -209,14 +229,25 @@ export const addUserToBoard = (req, res) => {
                 [board_id, user_id],
                 (err, result) => {
                   if (err) {
-                    if (err.code === '23505' || err.code === 'ER_DUP_ENTRY') {
-                      return res.status(400).json({ error: "Usuário já está neste board" });
+                    if (err.code === "23505" || err.code === "ER_DUP_ENTRY") {
+                      return res
+                        .status(400)
+                        .json({ error: "Usuário já está neste board" });
                     }
-                    console.error("❌ Erro ao adicionar usuário ao board:", err.message);
-                    return res.status(500).json({ error: "Erro ao adicionar usuário" });
+                    console.error(
+                      "❌ Erro ao adicionar usuário ao board:",
+                      err.message
+                    );
+                    return res
+                      .status(500)
+                      .json({ error: "Erro ao adicionar usuário" });
                   }
 
-                  res.status(201).json({ message: "Usuário adicionado ao board com sucesso" });
+                  res
+                    .status(201)
+                    .json({
+                      message: "Usuário adicionado ao board com sucesso",
+                    });
                 }
               );
             }
@@ -233,7 +264,9 @@ export const removeUserFromBoard = (req, res) => {
   const { admin_id } = req.body;
 
   if (!id || !userId || !admin_id) {
-    return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
+    return res
+      .status(400)
+      .json({ error: "board_id, user_id e admin_id são obrigatórios" });
   }
 
   const board_id = parseInt(id);
@@ -254,8 +287,12 @@ export const removeUserFromBoard = (req, res) => {
 
       const admin = adminResults[0];
 
-      if (admin.role !== 'admin') {
-        return res.status(403).json({ error: "Apenas administradores podem remover usuários dos boards" });
+      if (admin.role !== "admin") {
+        return res
+          .status(403)
+          .json({
+            error: "Apenas administradores podem remover usuários dos boards",
+          });
       }
 
       db.query(
@@ -274,7 +311,9 @@ export const removeUserFromBoard = (req, res) => {
           const board = boardResults[0];
 
           if (board.company_id !== admin.company_id) {
-            return res.status(403).json({ error: "Board não pertence à sua empresa" });
+            return res
+              .status(403)
+              .json({ error: "Board não pertence à sua empresa" });
           }
 
           db.query(
@@ -282,12 +321,19 @@ export const removeUserFromBoard = (req, res) => {
             [board_id, user_id],
             (err, result) => {
               if (err) {
-                console.error("❌ Erro ao remover usuário do board:", err.message);
-                return res.status(500).json({ error: "Erro ao remover usuário" });
+                console.error(
+                  "❌ Erro ao remover usuário do board:",
+                  err.message
+                );
+                return res
+                  .status(500)
+                  .json({ error: "Erro ao remover usuário" });
               }
 
               if (result.affectedRows === 0) {
-                return res.status(404).json({ error: "Relacionamento não encontrado" });
+                return res
+                  .status(404)
+                  .json({ error: "Relacionamento não encontrado" });
               }
 
               res.json({ message: "Usuário removido do board com sucesso" });
