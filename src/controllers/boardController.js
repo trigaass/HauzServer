@@ -1,23 +1,29 @@
 import db from "../configs/db.js";
 
-// ✅ CRIAR BOARD
+// ✅ CRIAR BOARD - VERSÃO CORRIGIDA
 export const createBoard = (req, res) => {
+  console.log("📥 Requisição recebida:", req.body);
+  
   const { company_id, name } = req.body;
 
   if (!company_id || !name) {
+    console.log("❌ Validação falhou: faltam campos");
     return res.status(400).json({ error: "company_id e name são obrigatórios" });
   }
 
-  // 🔥 CORREÇÃO: Adicionar callback como terceiro parâmetro
+  console.log("🔄 Executando query INSERT...");
+  
   db.query(
     "INSERT INTO boards (company_id, name) VALUES (?, ?)",
-    [company_id, name],  // ✅ Array de parâmetros
-    (err, result) => {    // ✅ Callback
+    [company_id, name],
+    (err, result) => {
       if (err) {
-        console.error("❌ Erro ao criar board:", err.message);
-        return res.status(500).json({ error: "Erro ao criar board" });
+        console.error("❌ Erro na query:", err);
+        return res.status(500).json({ error: "Erro ao criar board", details: err.message });
       }
 
+      console.log("✅ Board criado com sucesso:", result);
+      
       res.status(201).json({
         message: "Board criado com sucesso",
         boardId: result.insertId
@@ -128,8 +134,8 @@ export const deleteBoard = (req, res) => {
 
 // ✅ ADICIONAR USUÁRIO AO BOARD (COM VALIDAÇÕES)
 export const addUserToBoard = (req, res) => {
-  const { id } = req.params; // board_id vem da URL
-  const { user_id, admin_id } = req.body; // dados vêm do body
+  const { id } = req.params;
+  const { user_id, admin_id } = req.body;
 
   if (!id || !user_id || !admin_id) {
     return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
@@ -197,13 +203,12 @@ export const addUserToBoard = (req, res) => {
                 return res.status(403).json({ error: "Usuário não pertence à sua empresa" });
               }
 
-              // 4. Finalmente, adicionar usuário ao board
+              // 4. Adicionar usuário ao board
               db.query(
                 "INSERT INTO board_users (board_id, user_id) VALUES (?, ?)",
                 [board_id, user_id],
                 (err, result) => {
                   if (err) {
-                    // Código de erro para chave duplicada no PostgreSQL
                     if (err.code === '23505' || err.code === 'ER_DUP_ENTRY') {
                       return res.status(400).json({ error: "Usuário já está neste board" });
                     }
@@ -222,10 +227,10 @@ export const addUserToBoard = (req, res) => {
   );
 };
 
-// ✅ REMOVER USUÁRIO DO BOARD (COM VALIDAÇÕES)
+// ✅ REMOVER USUÁRIO DO BOARD
 export const removeUserFromBoard = (req, res) => {
-  const { id, userId } = req.params; // board_id e user_id vêm da URL
-  const { admin_id } = req.body; // admin_id vem do body
+  const { id, userId } = req.params;
+  const { admin_id } = req.body;
 
   if (!id || !userId || !admin_id) {
     return res.status(400).json({ error: "board_id, user_id e admin_id são obrigatórios" });
@@ -234,7 +239,6 @@ export const removeUserFromBoard = (req, res) => {
   const board_id = parseInt(id);
   const user_id = parseInt(userId);
 
-  // 1. Verificar se admin existe e é realmente admin
   db.query(
     "SELECT role, company_id FROM users WHERE id = ?",
     [admin_id],
@@ -254,7 +258,6 @@ export const removeUserFromBoard = (req, res) => {
         return res.status(403).json({ error: "Apenas administradores podem remover usuários dos boards" });
       }
 
-      // 2. Verificar se o board existe e pertence à empresa do admin
       db.query(
         "SELECT company_id FROM boards WHERE id = ?",
         [board_id],
@@ -274,7 +277,6 @@ export const removeUserFromBoard = (req, res) => {
             return res.status(403).json({ error: "Board não pertence à sua empresa" });
           }
 
-          // 3. Remover usuário do board
           db.query(
             "DELETE FROM board_users WHERE board_id = ? AND user_id = ?",
             [board_id, user_id],
