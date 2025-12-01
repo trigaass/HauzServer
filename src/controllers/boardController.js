@@ -8,10 +8,11 @@ export const createBoard = (req, res) => {
     return res.status(400).json({ error: "company_id e name são obrigatórios" });
   }
 
+  // 🔥 CORREÇÃO: Adicionar callback como terceiro parâmetro
   db.query(
     "INSERT INTO boards (company_id, name) VALUES (?, ?)",
-    [company_id, name],
-    (err, result) => {
+    [company_id, name],  // ✅ Array de parâmetros
+    (err, result) => {    // ✅ Callback
       if (err) {
         console.error("❌ Erro ao criar board:", err.message);
         return res.status(500).json({ error: "Erro ao criar board" });
